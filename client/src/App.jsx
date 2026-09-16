@@ -5,6 +5,10 @@ import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import ByNeighborhood from './pages/ByNeighborhood.jsx';
 import ByWorker from './pages/ByWorker.jsx';
+import ManageWorkers from './pages/ManageWorkers.jsx';
+import ManageNeighborhoods from './pages/ManageNeighborhoods.jsx';
+import AddJob from './pages/AddJob.jsx';
+import AllJobs from './pages/AllJobs.jsx';
 import JobDetail from './pages/JobDetail.jsx';
 import Invoice from './pages/Invoice.jsx';
 
@@ -33,8 +37,12 @@ export default function App() {
         }
       >
         <Route index element={<Dashboard />} />
+        <Route path="all-jobs" element={<AllJobs />} />
         <Route path="neighborhoods" element={<ByNeighborhood />} />
+        <Route path="neighborhoods/manage" element={<ManageNeighborhoods />} />
+        <Route path="workers/manage" element={<ManageWorkers />} />
         <Route path="workers" element={<ByWorker />} />
+        <Route path="jobs/new" element={<AddJob />} />
         <Route path="jobs/:id" element={<JobDetail />} />
         <Route path="jobs/:id/invoice" element={<Invoice />} />
       </Route>

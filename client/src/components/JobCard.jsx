@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import StatusBadge from './StatusBadge.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
-export default function JobCard({ job, showWorkerStatus }) {
+export default function JobCard({ job, showWorkerStatus, onRemove }) {
   const { isAdmin } = useAuth();
 
   return (
@@ -14,6 +14,7 @@ export default function JobCard({ job, showWorkerStatus }) {
           </h3>
           <p className="job-meta">
             {job.address} · {job.neighborhood_name} · {job.client_name}
+            {job.sqft ? ` · ${Number(job.sqft).toLocaleString()} sqft` : ''}
           </p>
         </div>
         <span className={`status ${job.status === 'active' ? 'status-paid' : ''}`} style={job.status !== 'active' ? { background: '#f3f4f6', color: '#6b7280' } : {}}>
@@ -39,10 +40,19 @@ export default function JobCard({ job, showWorkerStatus }) {
           </span>
         )}
       </div>
-      <div style={{ marginTop: '0.75rem' }}>
+      <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <Link to={`/jobs/${job.id}/invoice`} className="btn btn-sm btn-ghost">
           View invoice
         </Link>
+        {isAdmin && onRemove && (
+          <button
+            type="button"
+            className="btn btn-sm btn-danger"
+            onClick={() => onRemove(job)}
+          >
+            Remove
+          </button>
+        )}
       </div>
     </article>
   );

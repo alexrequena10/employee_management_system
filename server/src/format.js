@@ -19,6 +19,8 @@ export function sanitizeJob(job, admin) {
     client_name: job.client_name,
     description: job.description,
     status: job.status,
+    sqft: job.sqft ?? 0,
+    worker_rate_per_sqft: job.worker_rate_per_sqft ?? 1.8,
     company_paid: Boolean(job.company_paid),
     company_payment_status: paidStatus(job.company_paid),
     created_at: job.created_at,

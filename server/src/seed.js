@@ -30,8 +30,8 @@ const insertWorker = db.prepare(
 const workerIds = workers.map((w) => insertWorker.run(...w).lastInsertRowid);
 
 const insertJob = db.prepare(`
-  INSERT INTO jobs (title, address, neighborhood_id, client_name, description, status, company_amount_cents, company_paid)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  INSERT INTO jobs (title, address, neighborhood_id, client_name, description, status, company_amount_cents, company_paid, sqft, worker_rate_per_sqft)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 const insertAssign = db.prepare(`
   INSERT INTO job_assignments (job_id, worker_id, worker_amount_cents, worker_paid, notes)
@@ -39,16 +39,17 @@ const insertAssign = db.prepare(`
 `);
 
 const jobs = [
-  ['Kitchen remodel', '142 Oak Lane', 0, 'Anderson Family', 'Cabinet install and backsplash', 'active', 1850000, 0],
-  ['Bathroom renovation', '88 River Rd', 1, 'Nguyen LLC', 'Full gut and tile', 'active', 920000, 1],
-  ['Deck repair', '301 Westgate Dr', 3, 'Miller Home', 'Replace boards and railing', 'active', 450000, 0],
-  ['Roof patch', '12 Maple St', 4, 'Green Properties', 'Storm damage section', 'completed', 320000, 1],
-  ['Fence install', '55 Downtown Ave', 2, 'City Cafe', 'Perimeter cedar fence', 'active', 680000, 0],
-  ['Garage drywall', '9 Oak Hills Ct', 0, 'Reed Trust', 'Finish and paint', 'completed', 540000, 0],
+  ['Kitchen remodel', '142 Oak Lane', 0, 'Anderson Family', 'Cabinet install and backsplash', 'active', 1850000, 0, 1028],
+  ['Bathroom renovation', '88 River Rd', 1, 'Nguyen LLC', 'Full gut and tile', 'active', 920000, 1, 450],
+  ['Deck repair', '301 Westgate Dr', 3, 'Miller Home', 'Replace boards and railing', 'active', 450000, 0, 320],
+  ['Roof patch', '12 Maple St', 4, 'Green Properties', 'Storm damage section', 'completed', 320000, 1, 180],
+  ['Fence install', '55 Downtown Ave', 2, 'City Cafe', 'Perimeter cedar fence', 'active', 680000, 0, 500],
+  ['Garage drywall', '9 Oak Hills Ct', 0, 'Reed Trust', 'Finish and paint', 'completed', 540000, 0, 600],
 ];
 
 jobs.forEach((j, i) => {
   const hoodIdx = j[2];
+  const sqft = j[8];
   const jobId = insertJob.run(
     j[0],
     j[1],
@@ -57,13 +58,16 @@ jobs.forEach((j, i) => {
     j[4],
     j[5],
     j[6],
-    j[7]
+    j[7],
+    sqft,
+    1.8
   ).lastInsertRowid;
 
   const w1 = workerIds[i % workerIds.length];
   const w2 = workerIds[(i + 2) % workerIds.length];
-  insertAssign.run(jobId, w1, 120000 + i * 15000, i % 2, null);
-  if (i % 3 !== 0) insertAssign.run(jobId, w2, 80000 + i * 10000, i > 2 ? 1 : 0, 'Helper shift');
+  const workerPay = Math.round(sqft * 1.8 * 100);
+  insertAssign.run(jobId, w1, workerPay, i % 2, null);
+  if (i % 3 !== 0) insertAssign.run(jobId, w2, workerPay, i > 2 ? 1 : 0, 'Helper shift');
 });
 
 console.log('Seed complete.');

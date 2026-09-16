@@ -27,8 +27,8 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>Worker Management</h1>
-        <p className="subtitle">Track jobs, payments, and invoices</p>
+        <h1>A&E Construction</h1>
+        <p className="subtitle">Desktop worker &amp; job management</p>
         {error && <div className="error-banner">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group" style={{ marginBottom: '1rem' }}>

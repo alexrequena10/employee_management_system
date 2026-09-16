@@ -4,7 +4,9 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, '..', 'data');
+const dataDir = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const dbPath = path.join(dataDir, 'workers.db');
@@ -46,6 +48,8 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
     company_amount_cents INTEGER NOT NULL DEFAULT 0,
     company_paid INTEGER NOT NULL DEFAULT 0,
+    sqft REAL NOT NULL DEFAULT 0,
+    worker_rate_per_sqft REAL NOT NULL DEFAULT 1.8,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     completed_at TEXT
   );
@@ -65,5 +69,23 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_assignments_worker ON job_assignments(worker_id);
   CREATE INDEX IF NOT EXISTS idx_assignments_job ON job_assignments(job_id);
 `);
+
+const jobColNames = new Set(
+  db.prepare('PRAGMA table_info(jobs)').all().map((c) => c.name)
+);
+if (!jobColNames.has('sqft')) {
+  db.exec('ALTER TABLE jobs ADD COLUMN sqft REAL NOT NULL DEFAULT 0');
+}
+if (!jobColNames.has('worker_rate_per_sqft')) {
+  db.exec('ALTER TABLE jobs ADD COLUMN worker_rate_per_sqft REAL NOT NULL DEFAULT 1.8');
+}
+for (const col of ['invoice_notes', 'invoice_bill_to', 'invoice_due_date']) {
+  if (!jobColNames.has(col)) {
+    db.exec(`ALTER TABLE jobs ADD COLUMN ${col} TEXT`);
+  }
+}
+if (!jobColNames.has('invoice_updated_at')) {
+  db.exec('ALTER TABLE jobs ADD COLUMN invoice_updated_at TEXT');
+}
 
 export default db;

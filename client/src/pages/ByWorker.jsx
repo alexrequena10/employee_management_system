@@ -28,6 +28,21 @@ export default function ByWorker() {
       .finally(() => setLoading(false));
   }, [selectedId]);
 
+  async function handleRemove(job) {
+    const confirmed = window.confirm(
+      `Remove "${job.title}"? Worker assignments for this job will also be deleted.`
+    );
+    if (!confirmed) return;
+
+    setError('');
+    try {
+      await api(`/jobs/${job.id}`, { method: 'DELETE' });
+      setJobs((prev) => prev.filter((j) => j.id !== job.id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   const selected = workers.find((w) => String(w.id) === selectedId);
 
   return (
@@ -69,7 +84,7 @@ export default function ByWorker() {
       {!loading && jobs.length > 0 && (
         <div className="job-list">
           {jobs.map((job) => (
-            <JobCard key={job.id} job={job} showWorkerStatus />
+            <JobCard key={job.id} job={job} showWorkerStatus onRemove={handleRemove} />
           ))}
         </div>
       )}

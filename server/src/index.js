@@ -15,7 +15,8 @@ const isProd = process.env.NODE_ENV === 'production';
 app.use(helmet({ contentSecurityPolicy: isProd }));
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+    // Same-origin static+API in production when CLIENT_ORIGIN is unset
+    origin: process.env.CLIENT_ORIGIN || (isProd ? false : 'http://localhost:5173'),
     credentials: true,
   })
 );
@@ -44,6 +45,26 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Worker Management API on http://localhost:${PORT}`);
+const HOST = process.env.HOST || '0.0.0.0';
+const server = app.listen(PORT, HOST, () => {
+  console.log(`Worker Management API on http://${HOST}:${PORT}`);
 });
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(
+      `Port ${PORT} is already in use. Stop the other process with:\n` +
+        `  kill -9 $(lsof -ti:${PORT})`
+    );
+    process.exit(1);
+  }
+  throw err;
+});
+
+function shutdown() {
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 5000).unref();
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

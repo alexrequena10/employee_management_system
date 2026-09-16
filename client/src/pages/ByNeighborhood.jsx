@@ -28,6 +28,21 @@ export default function ByNeighborhood() {
       .finally(() => setLoading(false));
   }, [selectedId]);
 
+  async function handleRemove(job) {
+    const confirmed = window.confirm(
+      `Remove "${job.title}"? Worker assignments for this job will also be deleted.`
+    );
+    if (!confirmed) return;
+
+    setError('');
+    try {
+      await api(`/jobs/${job.id}`, { method: 'DELETE' });
+      setJobs((prev) => prev.filter((j) => j.id !== job.id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   return (
     <>
       <header className="page-title">
@@ -60,7 +75,7 @@ export default function ByNeighborhood() {
       {!loading && jobs.length > 0 && (
         <div className="job-list">
           {jobs.map((job) => (
-            <JobCard key={job.id} job={job} />
+            <JobCard key={job.id} job={job} onRemove={handleRemove} />
           ))}
         </div>
       )}

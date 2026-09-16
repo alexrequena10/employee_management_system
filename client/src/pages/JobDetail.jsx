@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 
 export default function JobDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +55,24 @@ export default function JobDetail() {
     }
   }
 
+  async function removeJob() {
+    if (!isAdmin) return;
+    const confirmed = window.confirm(
+      `Remove "${job.title}"? Worker assignments for this job will also be deleted.`
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError('');
+    try {
+      await api(`/jobs/${id}`, { method: 'DELETE' });
+      navigate('/', { replace: true });
+    } catch (e) {
+      setError(e.message);
+      setSaving(false);
+    }
+  }
+
   if (loading) return <p className="loading">Loading job…</p>;
   if (error && !job) return <div className="error-banner">{error}</div>;
   if (!job) return <p className="empty-state">Job not found.</p>;
@@ -68,9 +87,59 @@ export default function JobDetail() {
         <p>
           {job.address} · {job.neighborhood_name} · Client: {job.client_name}
         </p>
+        <p className="job-meta">
+          {job.sqft ? `${Number(job.sqft).toLocaleString()} sqft` : 'Sqft not set'}
+        </p>
       </header>
 
       {error && <div className="error-banner">{error}</div>}
+
+      <div className="card">
+        <h3 style={{ marginBottom: '1rem' }}>Square footage & worker rate</h3>
+        {isAdmin ? (
+          <div className="form-row">
+            <div className="form-group" style={{ maxWidth: '200px' }}>
+              <label htmlFor="sqft">Sqft</label>
+              <input
+                id="sqft"
+                type="number"
+                min="1"
+                step="1"
+                defaultValue={job.sqft || ''}
+                onBlur={(e) => {
+                  const val = Number(e.target.value);
+                  if (val > 0 && val !== Number(job.sqft)) updateJob({ sqft: val });
+                }}
+              />
+            </div>
+            <div className="form-group" style={{ maxWidth: '200px' }}>
+              <label htmlFor="worker_rate">Worker rate ($/sqft)</label>
+              <input
+                id="worker_rate"
+                type="number"
+                min="0.01"
+                step="0.01"
+                defaultValue={job.worker_rate_per_sqft ?? 1.8}
+                onBlur={(e) => {
+                  const val = Number(e.target.value);
+                  if (val > 0 && val !== Number(job.worker_rate_per_sqft)) {
+                    updateJob({ worker_rate_per_sqft: val });
+                  }
+                }}
+              />
+            </div>
+            <p className="job-meta" style={{ alignSelf: 'flex-end', marginBottom: '0.55rem' }}>
+              Worker pay recalculates when sqft or rate changes.
+            </p>
+          </div>
+        ) : (
+          <p>
+            {job.sqft ? `${Number(job.sqft).toLocaleString()} sqft` : '—'}
+            {' · '}
+            Rate: ${Number(job.worker_rate_per_sqft ?? 1.8).toFixed(2)}/sqft
+          </p>
+        )}
+      </div>
 
       <div className="card">
         <h3 style={{ marginBottom: '1rem' }}>Company payment (client → company)</h3>
@@ -144,10 +213,20 @@ export default function JobDetail() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <Link to={`/jobs/${id}/invoice`} className="btn btn-primary">
           Generate invoice
         </Link>
+        {isAdmin && (
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={saving}
+            onClick={removeJob}
+          >
+            Remove job
+          </button>
+        )}
       </div>
     </>
   );

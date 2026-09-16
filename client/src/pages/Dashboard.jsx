@@ -68,12 +68,15 @@ export default function Dashboard() {
       <div className="card">
         <h3 style={{ marginBottom: '0.75rem' }}>Quick actions</h3>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <Link to="/neighborhoods" className="btn btn-primary">Browse by neighborhood</Link>
+          <Link to="/jobs/new" className="btn btn-primary">Add job</Link>
+          <Link to="/all-jobs" className="btn btn-primary">All jobs</Link>
+          <Link to="/neighborhoods" className="btn btn-secondary">Browse by neighborhood</Link>
           <Link to="/workers" className="btn btn-secondary">Browse by worker</Link>
         </div>
         {!isAdmin && (
           <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            You are signed in as an assistant. Payment amounts are hidden; you can view Paid/Unpaid status only.
+            You are signed in as an assistant. You can add jobs, workers, and neighborhoods.
+            Payment dollar amounts are hidden; Paid/Unpaid status is shown instead.
           </p>
         )}
       </div>
