@@ -56,11 +56,6 @@ export default function Login() {
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-        <div className="demo-hint">
-          <p><strong>Demo accounts</strong></p>
-          <p>Admin (full access): <code>admin</code> / <code>admin123</code></p>
-          <p>Assistant (status only): <code>assistant</code> / <code>assistant123</code></p>
-        </div>
       </div>
     </div>
   );

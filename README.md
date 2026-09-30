@@ -39,6 +39,17 @@ Open [http://localhost:5173](http://localhost:5173).
 
 Change passwords and set a strong `JWT_SECRET` in `server/.env` before sharing the app widely.
 
+### Change a login
+
+Run from the project folder (replaces the username and password for that role):
+
+```bash
+npm run set-login -- admin <username> <password>
+npm run set-login -- assistant <username> <password>
+```
+
+Anyone logged in stays logged in until they log out; the new login is required next time.
+
 ## Shared use from different locations (Railway)
 
 Use this when **admin** and **assistant** need the same live data from different places. Both open one public URL; changes save to a shared SQLite database on Railway. Refresh or revisit a page to see the other person’s updates.
@@ -76,7 +87,12 @@ Or run seed locally against a copy of the DB, then upload — the container path
 
 ### 3. Change passwords before sharing
 
-Default seed logins (`admin` / `admin123`, `assistant` / `assistant123`) are only for first setup. Change them in the database or re-seed with custom hashes before giving anyone the URL.
+Default seed logins (`admin` / `admin123`, `assistant` / `assistant123`) are only for first setup. From Railway's shell, replace them before giving anyone the URL:
+
+```bash
+cd /app/server && node src/set-login.js admin <username> <password>
+cd /app/server && node src/set-login.js assistant <username> <password>
+```
 
 ### 4. Day-to-day use
 
@@ -141,10 +157,7 @@ This starts the server and opens **http://localhost:3001** in his browser. **Lea
 
 ### Logins (change these after first use)
 
-| Role      | Username    | Password       |
-|-----------|-------------|----------------|
-| Admin     | `admin`     | `admin123`     |
-| Assistant | `assistant` | `assistant123` |
+Setup creates `admin` / `admin123` and `assistant` / `assistant123`. Replace them right after setup with `npm run set-login` (see [Change a login](#change-a-login)).
 
 ### Tips
 
