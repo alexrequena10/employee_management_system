@@ -95,6 +95,27 @@ export default function JobDetail() {
       {error && <div className="error-banner">{error}</div>}
 
       <div className="card">
+        <h3 style={{ marginBottom: '1rem' }}>Job status</h3>
+        {isAdmin ? (
+          <div className="form-group" style={{ maxWidth: '200px' }}>
+            <label htmlFor="status">Status</label>
+            <select
+              id="status"
+              value={job.status}
+              disabled={saving}
+              onChange={(e) => updateJob({ status: e.target.value })}
+            >
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+        ) : (
+          <span className="status-chip">{job.status}</span>
+        )}
+      </div>
+
+      <div className="card">
         <h3 style={{ marginBottom: '1rem' }}>Square footage & worker rate</h3>
         {isAdmin ? (
           <div className="form-row">
@@ -138,36 +159,6 @@ export default function JobDetail() {
             {' · '}
             Rate: ${Number(job.worker_rate_per_sqft ?? 1.8).toFixed(2)}/sqft
           </p>
-        )}
-      </div>
-
-      <div className="card">
-        <h3 style={{ marginBottom: '1rem' }}>Company payment (client → company)</h3>
-        <p style={{ marginBottom: '0.75rem' }}>
-          Status: <StatusBadge paid={job.company_paid} label={job.company_payment_status} />
-          {isAdmin && job.company_amount && (
-            <span style={{ marginLeft: '0.5rem' }}>Price: <strong>{job.company_amount}</strong></span>
-          )}
-        </p>
-        {isAdmin && (
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              disabled={saving || job.company_paid}
-              onClick={() => updateJob({ company_paid: true })}
-            >
-              Mark company paid
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-secondary"
-              disabled={saving || !job.company_paid}
-              onClick={() => updateJob({ company_paid: false })}
-            >
-              Mark company unpaid
-            </button>
-          </div>
         )}
       </div>
 

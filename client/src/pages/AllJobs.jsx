@@ -28,7 +28,7 @@ export default function AllJobs() {
     <>
       <header className="page-title">
         <h2>All jobs</h2>
-        <p>Every job with company and worker payment status</p>
+        <p>Every job with worker payment status</p>
       </header>
 
       <div className="form-row">
@@ -64,7 +64,6 @@ export default function AllJobs() {
                 <th>Sqft</th>
                 <th>Neighborhood</th>
                 <th>Status</th>
-                <th>Company</th>
                 <th>Workers</th>
               </tr>
             </thead>
@@ -81,12 +80,6 @@ export default function AllJobs() {
                   <td>{job.neighborhood_name}</td>
                   <td>
                     <span className="status-chip">{job.status}</span>
-                  </td>
-                  <td>
-                    <StatusBadge paid={job.company_paid} label={job.company_payment_status} />
-                    {isAdmin && job.company_amount && (
-                      <div className="job-meta">{job.company_amount}</div>
-                    )}
                   </td>
                   <td>
                     {job.assignments?.length ? (

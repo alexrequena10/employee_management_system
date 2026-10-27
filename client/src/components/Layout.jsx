@@ -7,6 +7,7 @@ const navSections = [
     links: [
       { to: '/', end: true, label: 'Dashboard' },
       { to: '/all-jobs', label: 'All Jobs' },
+      { to: '/weekly', label: 'Weekly Jobs' },
     ],
   },
   {

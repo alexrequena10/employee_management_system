@@ -17,7 +17,7 @@ export default function ManageWorkers() {
 
   const loadWorkers = useCallback(() => {
     setLoading(true);
-    api('/workers?active=false')
+    api('/workers')
       .then(({ workers: w }) => setWorkers(w))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -110,7 +110,6 @@ export default function ManageWorkers() {
   }
 
   const activeWorkers = workers.filter((w) => w.active);
-  const inactiveWorkers = workers.filter((w) => !w.active);
 
   return (
     <>
@@ -274,97 +273,6 @@ export default function ManageWorkers() {
         )}
       </div>
 
-      {inactiveWorkers.length > 0 && (
-        <div className="card">
-          <h3 style={{ marginBottom: '0.5rem' }}>Inactive workers ({inactiveWorkers.length})</h3>
-          <p className="job-meta" style={{ marginBottom: '1rem' }}>
-            Deactivated workers keep job history but no longer appear in job assignment lists.
-          </p>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {inactiveWorkers.map((w) =>
-                editingId === w.id ? (
-                  <tr key={w.id}>
-                    <td>
-                      <div className="form-row" style={{ marginBottom: 0 }}>
-                        <input
-                          aria-label="First name"
-                          value={editForm.first_name}
-                          onChange={(e) => updateEditField('first_name', e.target.value)}
-                          required
-                        />
-                        <input
-                          aria-label="Last name"
-                          value={editForm.last_name}
-                          onChange={(e) => updateEditField('last_name', e.target.value)}
-                          required
-                        />
-                      </div>
-                    </td>
-                    <td>
-                      <input
-                        aria-label="Email"
-                        type="email"
-                        value={editForm.email}
-                        onChange={(e) => updateEditField('email', e.target.value)}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        aria-label="Phone"
-                        type="tel"
-                        value={editForm.phone}
-                        onChange={(e) => updateEditField('phone', e.target.value)}
-                      />
-                    </td>
-                    <td className="table-actions">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-primary"
-                        disabled={submitting || !editForm.first_name.trim() || !editForm.last_name.trim()}
-                        onClick={() => handleSaveEdit(w.id)}
-                      >
-                        Save
-                      </button>{' '}
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary"
-                        disabled={submitting}
-                        onClick={cancelEdit}
-                      >
-                        Cancel
-                      </button>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={w.id}>
-                    <td>{w.name}</td>
-                    <td>{w.email || '—'}</td>
-                    <td>{w.phone || '—'}</td>
-                    <td className="table-actions">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => startEdit(w)}
-                      >
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                )
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
     </>
   );
 }

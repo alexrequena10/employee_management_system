@@ -522,10 +522,15 @@ router.patch('/jobs/:id', authMiddleware, requireAdmin, (req, res) => {
     params.push(Number(company_amount_cents));
   }
   if (status !== undefined) {
+    if (!['active', 'completed', 'cancelled'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
     updates.push('status = ?');
     params.push(status);
     if (status === 'completed') {
-      updates.push("completed_at = datetime('now')");
+      if (job.status !== 'completed') updates.push("completed_at = datetime('now')");
+    } else {
+      updates.push('completed_at = NULL');
     }
   }
   if (title !== undefined) {

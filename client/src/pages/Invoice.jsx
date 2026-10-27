@@ -206,31 +206,6 @@ export default function Invoice() {
         </section>
 
         <section style={{ marginTop: '1.5rem' }}>
-          <h3>Company payment</h3>
-          {editing && isAdmin ? (
-            <div className="form-group" style={{ maxWidth: '200px' }}>
-              <label htmlFor="company_amount">Amount billed ($)</label>
-              <input
-                id="company_amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={editForm.company_amount}
-                onChange={(e) => updateEditField('company_amount', e.target.value)}
-              />
-            </div>
-          ) : (
-            isAdmin && job.company_amount && (
-              <p>Amount billed: <strong>{job.company_amount}</strong></p>
-            )
-          )}
-          <p>
-            Company payment status:{' '}
-            <StatusBadge paid={job.company_paid} label={job.company_payment_status} />
-          </p>
-        </section>
-
-        <section style={{ marginTop: '1.5rem' }}>
           <h3>Worker labor</h3>
           <table className="invoice-table">
             <thead>
@@ -288,12 +263,20 @@ export default function Invoice() {
           {isAdmin ? (
             <>
               <div className="row">
-                <span>Company billed</span>
-                <strong>{totals.company_billed}</strong>
-              </div>
-              <div className="row">
-                <span>Company status</span>
-                <strong>{totals.company_status}</strong>
+                <label htmlFor="company_amount">Price</label>
+                {editing ? (
+                  <input
+                    id="company_amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.company_amount}
+                    onChange={(e) => updateEditField('company_amount', e.target.value)}
+                    style={{ width: '8rem' }}
+                  />
+                ) : (
+                  <strong>{totals.company_billed}</strong>
+                )}
               </div>
               <div className="row">
                 <span>Total worker pay</span>
@@ -302,10 +285,6 @@ export default function Invoice() {
             </>
           ) : (
             <>
-              <div className="row">
-                <span>Company status</span>
-                <strong>{totals.company_status}</strong>
-              </div>
               <div className="row">
                 <span>Workers paid</span>
                 <strong>{totals.workers_paid_count}</strong>

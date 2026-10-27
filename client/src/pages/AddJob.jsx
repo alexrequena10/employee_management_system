@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
-import { DEFAULT_WORKER_RATE_PER_SQFT, formatWorkerPay } from '../constants.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import {
+  CLIENT_NAMES,
+  DEFAULT_WORKER_RATE_PER_SQFT,
+  JOB_TITLES,
+  formatWorkerPay,
+} from '../constants.js';
 
 const emptyForm = {
   title: '',
@@ -23,8 +29,22 @@ const emptyBulkRow = () => ({
   worker_id: '',
 });
 
+function OptionSelect({ id, options, placeholder, value, onChange, required }) {
+  return (
+    <select id={id} value={value} onChange={(e) => onChange(e.target.value)} required={required}>
+      <option value="">{placeholder}</option>
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export default function AddJob() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [mode, setMode] = useState('single');
   const [form, setForm] = useState(emptyForm);
   const [bulkRows, setBulkRows] = useState([emptyBulkRow(), emptyBulkRow()]);
@@ -145,7 +165,7 @@ export default function AddJob() {
         <h2>Add job{mode === 'multiple' ? 's' : ''}</h2>
         <p>
           {mode === 'single'
-            ? 'Create a job, assign one worker, and review the price from the worker rate'
+            ? 'Create a job and assign one worker'
             : 'Create several jobs and assign a different worker to each one'}
         </p>
       </header>
@@ -184,20 +204,23 @@ export default function AddJob() {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="title">Job title</label>
-                <input
+                <OptionSelect
                   id="title"
+                  options={JOB_TITLES}
+                  placeholder="Select job type"
                   value={form.title}
-                  onChange={(e) => updateField('title', e.target.value)}
-                  placeholder="e.g. Kitchen remodel"
+                  onChange={(v) => updateField('title', v)}
                   required
                 />
               </div>
               <div className="form-group">
                 <label htmlFor="client_name">Client name</label>
-                <input
+                <OptionSelect
                   id="client_name"
+                  options={CLIENT_NAMES}
+                  placeholder="Select client"
                   value={form.client_name}
-                  onChange={(e) => updateField('client_name', e.target.value)}
+                  onChange={(v) => updateField('client_name', v)}
                   required
                 />
               </div>
@@ -207,10 +230,12 @@ export default function AddJob() {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="client_name">Client name (all jobs)</label>
-                <input
+                <OptionSelect
                   id="client_name"
+                  options={CLIENT_NAMES}
+                  placeholder="Select client"
                   value={form.client_name}
-                  onChange={(e) => updateField('client_name', e.target.value)}
+                  onChange={(v) => updateField('client_name', v)}
                   required
                 />
               </div>
@@ -303,7 +328,7 @@ export default function AddJob() {
           </div>
           {mode === 'single' && (
             <>
-              <div className="form-row">
+              <div className="form-row" style={{ alignItems: 'start', marginBottom: '0.5rem' }}>
                 <div className="form-group">
                   <label htmlFor="worker_id">Worker</label>
                   <select
@@ -319,20 +344,22 @@ export default function AddJob() {
                     ))}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label htmlFor="price">Price</label>
-                  <input
-                    id="price"
-                    value={form.sqft && Number(form.sqft) > 0 ? calculatedPay : ''}
-                    placeholder="Enter square footage"
-                    readOnly
-                  />
-                  <p className="job-meta">
-                    {form.sqft && Number(form.sqft) > 0
-                      ? `${Number(form.sqft).toLocaleString()} sqft × $${rate.toFixed(2)}`
-                      : 'Calculated from square footage × worker rate'}
-                  </p>
-                </div>
+                {isAdmin && (
+                  <div className="form-group">
+                    <label htmlFor="price">Price</label>
+                    <input
+                      id="price"
+                      value={form.sqft && Number(form.sqft) > 0 ? calculatedPay : ''}
+                      placeholder="Enter square footage"
+                      readOnly
+                    />
+                    <p className="job-meta" style={{ margin: 0 }}>
+                      {form.sqft && Number(form.sqft) > 0
+                        ? `${Number(form.sqft).toLocaleString()} sqft × $${rate.toFixed(2)}`
+                        : 'Calculated from square footage × worker rate'}
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="form-group" style={{ marginBottom: '1rem' }}>
                 <label htmlFor="description">Description</label>
@@ -351,7 +378,7 @@ export default function AddJob() {
               checked={form.company_paid}
               onChange={(e) => updateField('company_paid', e.target.checked)}
             />
-            Client has paid company
+            Mark as paid
           </label>
         </div>
 
@@ -364,7 +391,8 @@ export default function AddJob() {
               </button>
             </div>
             <p className="job-meta" style={{ marginBottom: '1rem' }}>
-              Assign one worker to each job. Price is square footage × ${rate.toFixed(2)}.
+              Assign one worker to each job.
+              {isAdmin && ` Price is square footage × $${rate.toFixed(2)}.`}
             </p>
             <div className="table-scroll">
               <table className="data-table">
@@ -374,7 +402,7 @@ export default function AddJob() {
                     <th>Address</th>
                     <th>Sqft</th>
                     <th>Worker</th>
-                    <th>Price</th>
+                    {isAdmin && <th>Price</th>}
                     <th>Notes</th>
                     <th />
                   </tr>
@@ -383,10 +411,11 @@ export default function AddJob() {
                   {bulkRows.map((row, index) => (
                     <tr key={index}>
                       <td>
-                        <input
+                        <OptionSelect
+                          options={JOB_TITLES}
+                          placeholder="Select job type"
                           value={row.title}
-                          onChange={(e) => updateBulkRow(index, 'title', e.target.value)}
-                          placeholder="Job title"
+                          onChange={(v) => updateBulkRow(index, 'title', v)}
                           required={index === 0}
                         />
                       </td>
@@ -425,11 +454,13 @@ export default function AddJob() {
                           ))}
                         </select>
                       </td>
-                      <td>
-                        {row.sqft && Number(row.sqft) > 0
-                          ? formatWorkerPay(row.sqft, rate)
-                          : '—'}
-                      </td>
+                      {isAdmin && (
+                        <td>
+                          {row.sqft && Number(row.sqft) > 0
+                            ? formatWorkerPay(row.sqft, rate)
+                            : '—'}
+                        </td>
+                      )}
                       <td>
                         <input
                           value={row.description}

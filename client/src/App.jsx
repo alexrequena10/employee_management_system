@@ -11,6 +11,7 @@ import AddJob from './pages/AddJob.jsx';
 import AllJobs from './pages/AllJobs.jsx';
 import JobDetail from './pages/JobDetail.jsx';
 import Invoice from './pages/Invoice.jsx';
+import WeeklyJobs from './pages/WeeklyJobs.jsx';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -38,6 +39,7 @@ export default function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="all-jobs" element={<AllJobs />} />
+        <Route path="weekly" element={<WeeklyJobs />} />
         <Route path="neighborhoods" element={<ByNeighborhood />} />
         <Route path="neighborhoods/manage" element={<ManageNeighborhoods />} />
         <Route path="workers/manage" element={<ManageWorkers />} />

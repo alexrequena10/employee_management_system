@@ -607,6 +607,25 @@ input:focus, select:focus {
   flex-wrap: wrap;
 }
 
+.week-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.week-controls input[type='date'] {
+  width: auto;
+}
+
+.week-worker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+
 .mode-toggle {
   display: flex;
   gap: 0.5rem;

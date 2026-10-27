@@ -1,5 +1,5 @@
 // Date-only values ("2026-10-15") are calendar dates; SQLite datetime('now') values are UTC without a zone suffix.
-function parseDate(value) {
+export function parseDate(value) {
   const str = String(value);
   const dateOnly = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dateOnly) {
