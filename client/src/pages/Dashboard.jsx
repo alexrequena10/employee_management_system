@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
-import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Dashboard() {
-  const { isAdmin } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -73,12 +71,6 @@ export default function Dashboard() {
           <Link to="/neighborhoods" className="btn btn-secondary">Browse by neighborhood</Link>
           <Link to="/workers" className="btn btn-secondary">Browse by worker</Link>
         </div>
-        {!isAdmin && (
-          <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            You are signed in as an assistant. You can add jobs, workers, and neighborhoods.
-            Payment dollar amounts are hidden; Paid/Unpaid status is shown instead.
-          </p>
-        )}
       </div>
     </>
   );

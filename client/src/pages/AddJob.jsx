@@ -301,18 +301,20 @@ export default function AddJob() {
                 />
               </div>
             )}
-            <div className="form-group">
-              <label htmlFor="worker_rate_per_sqft">Worker rate ($/sqft)</label>
-              <input
-                id="worker_rate_per_sqft"
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={form.worker_rate_per_sqft}
-                onChange={(e) => updateField('worker_rate_per_sqft', e.target.value)}
-                required
-              />
-            </div>
+            {isAdmin && (
+              <div className="form-group">
+                <label htmlFor="worker_rate_per_sqft">Worker rate ($/sqft)</label>
+                <input
+                  id="worker_rate_per_sqft"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={form.worker_rate_per_sqft}
+                  onChange={(e) => updateField('worker_rate_per_sqft', e.target.value)}
+                  required
+                />
+              </div>
+            )}
             <div className="form-group">
               <label htmlFor="status">Status</label>
               <select

@@ -259,43 +259,30 @@ export default function Invoice() {
           </table>
         </section>
 
-        <footer className="invoice-totals">
-          {isAdmin ? (
-            <>
-              <div className="row">
-                <label htmlFor="company_amount">Price</label>
-                {editing ? (
-                  <input
-                    id="company_amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editForm.company_amount}
-                    onChange={(e) => updateEditField('company_amount', e.target.value)}
-                    style={{ width: '8rem' }}
-                  />
-                ) : (
-                  <strong>{totals.company_billed}</strong>
-                )}
-              </div>
-              <div className="row">
-                <span>Total worker pay</span>
-                <strong>{totals.worker_total}</strong>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="row">
-                <span>Workers paid</span>
-                <strong>{totals.workers_paid_count}</strong>
-              </div>
-              <div className="row">
-                <span>Workers unpaid</span>
-                <strong>{totals.workers_unpaid_count}</strong>
-              </div>
-            </>
-          )}
-        </footer>
+        {isAdmin && (
+          <footer className="invoice-totals">
+            <div className="row">
+              <label htmlFor="company_amount">Price</label>
+              {editing ? (
+                <input
+                  id="company_amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editForm.company_amount}
+                  onChange={(e) => updateEditField('company_amount', e.target.value)}
+                  style={{ width: '8rem' }}
+                />
+              ) : (
+                <strong>{totals.company_billed}</strong>
+              )}
+            </div>
+            <div className="row">
+              <span>Total worker pay</span>
+              <strong>{totals.worker_total}</strong>
+            </div>
+          </footer>
+        )}
 
         {!isAdmin && (
           <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>

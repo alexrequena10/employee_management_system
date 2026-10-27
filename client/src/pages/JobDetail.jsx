@@ -116,7 +116,9 @@ export default function JobDetail() {
       </div>
 
       <div className="card">
-        <h3 style={{ marginBottom: '1rem' }}>Square footage & worker rate</h3>
+        <h3 style={{ marginBottom: '1rem' }}>
+          {isAdmin ? 'Square footage & worker rate' : 'Square footage'}
+        </h3>
         {isAdmin ? (
           <div className="form-row">
             <div className="form-group" style={{ maxWidth: '200px' }}>
@@ -154,11 +156,7 @@ export default function JobDetail() {
             </p>
           </div>
         ) : (
-          <p>
-            {job.sqft ? `${Number(job.sqft).toLocaleString()} sqft` : '—'}
-            {' · '}
-            Rate: ${Number(job.worker_rate_per_sqft ?? 1.8).toFixed(2)}/sqft
-          </p>
+          <p>{job.sqft ? `${Number(job.sqft).toLocaleString()} sqft` : '—'}</p>
         )}
       </div>
 
