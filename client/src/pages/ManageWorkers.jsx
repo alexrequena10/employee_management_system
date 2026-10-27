@@ -10,6 +10,8 @@ export default function ManageWorkers() {
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(emptyForm);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -29,6 +31,27 @@ export default function ManageWorkers() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  function updateEditField(field, value) {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function startEdit(worker) {
+    setEditingId(worker.id);
+    setEditForm({
+      first_name: worker.first_name,
+      last_name: worker.last_name,
+      email: worker.email || '',
+      phone: worker.phone || '',
+    });
+    setError('');
+    setNotice('');
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditForm(emptyForm);
+  }
+
   async function handleAdd(e) {
     e.preventDefault();
     setError('');
@@ -41,6 +64,26 @@ export default function ManageWorkers() {
       });
       setForm(emptyForm);
       setNotice('Worker added.');
+      loadWorkers();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSaveEdit(workerId) {
+    setError('');
+    setNotice('');
+    setSubmitting(true);
+    try {
+      await api(`/workers/${workerId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(editForm),
+      });
+      setEditingId(null);
+      setEditForm(emptyForm);
+      setNotice('Worker updated.');
       loadWorkers();
     } catch (err) {
       setError(err.message);
@@ -73,7 +116,7 @@ export default function ManageWorkers() {
     <>
       <header className="page-title">
         <h2>Manage workers</h2>
-        <p>Add new workers or remove workers from the roster</p>
+        <p>Add workers, update their details, or remove them from the roster</p>
       </header>
 
       {error && <div className="error-banner">{error}</div>}
@@ -139,28 +182,93 @@ export default function ManageWorkers() {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Phone</th>
-                {isAdmin && <th />}
+                <th />
               </tr>
             </thead>
             <tbody>
-              {activeWorkers.map((w) => (
-                <tr key={w.id}>
-                  <td>{w.name}</td>
-                  <td>{w.email || '—'}</td>
-                  <td>{w.phone || '—'}</td>
-                  {isAdmin && (
+              {activeWorkers.map((w) =>
+                editingId === w.id ? (
+                  <tr key={w.id}>
+                    <td>
+                      <div className="form-row" style={{ marginBottom: 0 }}>
+                        <input
+                          aria-label="First name"
+                          value={editForm.first_name}
+                          onChange={(e) => updateEditField('first_name', e.target.value)}
+                          required
+                        />
+                        <input
+                          aria-label="Last name"
+                          value={editForm.last_name}
+                          onChange={(e) => updateEditField('last_name', e.target.value)}
+                          required
+                        />
+                      </div>
+                    </td>
+                    <td>
+                      <input
+                        aria-label="Email"
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => updateEditField('email', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        aria-label="Phone"
+                        type="tel"
+                        value={editForm.phone}
+                        onChange={(e) => updateEditField('phone', e.target.value)}
+                      />
+                    </td>
                     <td className="table-actions">
                       <button
                         type="button"
-                        className="btn btn-sm btn-danger"
-                        onClick={() => handleRemove(w)}
+                        className="btn btn-sm btn-primary"
+                        disabled={submitting || !editForm.first_name.trim() || !editForm.last_name.trim()}
+                        onClick={() => handleSaveEdit(w.id)}
                       >
-                        Remove
+                        Save
+                      </button>{' '}
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        disabled={submitting}
+                        onClick={cancelEdit}
+                      >
+                        Cancel
                       </button>
                     </td>
-                  )}
-                </tr>
-              ))}
+                  </tr>
+                ) : (
+                  <tr key={w.id}>
+                    <td>{w.name}</td>
+                    <td>{w.email || '—'}</td>
+                    <td>{w.phone || '—'}</td>
+                    <td className="table-actions">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => startEdit(w)}
+                      >
+                        Edit
+                      </button>
+                      {isAdmin && (
+                        <>
+                          {' '}
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-danger"
+                            onClick={() => handleRemove(w)}
+                          >
+                            Remove
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                )
+              )}
             </tbody>
           </table>
         )}
@@ -178,16 +286,81 @@ export default function ManageWorkers() {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Phone</th>
+                <th />
               </tr>
             </thead>
             <tbody>
-              {inactiveWorkers.map((w) => (
-                <tr key={w.id}>
-                  <td>{w.name}</td>
-                  <td>{w.email || '—'}</td>
-                  <td>{w.phone || '—'}</td>
-                </tr>
-              ))}
+              {inactiveWorkers.map((w) =>
+                editingId === w.id ? (
+                  <tr key={w.id}>
+                    <td>
+                      <div className="form-row" style={{ marginBottom: 0 }}>
+                        <input
+                          aria-label="First name"
+                          value={editForm.first_name}
+                          onChange={(e) => updateEditField('first_name', e.target.value)}
+                          required
+                        />
+                        <input
+                          aria-label="Last name"
+                          value={editForm.last_name}
+                          onChange={(e) => updateEditField('last_name', e.target.value)}
+                          required
+                        />
+                      </div>
+                    </td>
+                    <td>
+                      <input
+                        aria-label="Email"
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => updateEditField('email', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        aria-label="Phone"
+                        type="tel"
+                        value={editForm.phone}
+                        onChange={(e) => updateEditField('phone', e.target.value)}
+                      />
+                    </td>
+                    <td className="table-actions">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        disabled={submitting || !editForm.first_name.trim() || !editForm.last_name.trim()}
+                        onClick={() => handleSaveEdit(w.id)}
+                      >
+                        Save
+                      </button>{' '}
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        disabled={submitting}
+                        onClick={cancelEdit}
+                      >
+                        Cancel
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={w.id}>
+                    <td>{w.name}</td>
+                    <td>{w.email || '—'}</td>
+                    <td>{w.phone || '—'}</td>
+                    <td className="table-actions">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => startEdit(w)}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                )
+              )}
             </tbody>
           </table>
         </div>

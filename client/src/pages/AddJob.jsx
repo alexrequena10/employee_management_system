@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
-import { useAuth } from '../context/AuthContext.jsx';
 import { DEFAULT_WORKER_RATE_PER_SQFT, formatWorkerPay } from '../constants.js';
 
 const emptyForm = {
@@ -13,7 +12,6 @@ const emptyForm = {
   status: 'active',
   sqft: '',
   worker_rate_per_sqft: String(DEFAULT_WORKER_RATE_PER_SQFT),
-  company_amount: '',
   company_paid: false,
 };
 
@@ -21,27 +19,25 @@ const emptyBulkRow = () => ({
   title: '',
   address: '',
   sqft: '',
-  company_amount: '',
   description: '',
+  worker_id: '',
 });
 
 export default function AddJob() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
   const [mode, setMode] = useState('single');
   const [form, setForm] = useState(emptyForm);
   const [bulkRows, setBulkRows] = useState([emptyBulkRow(), emptyBulkRow()]);
   const [neighborhoods, setNeighborhoods] = useState([]);
   const [workers, setWorkers] = useState([]);
-  const [selectedWorkerIds, setSelectedWorkerIds] = useState([]);
+  const [selectedWorkerId, setSelectedWorkerId] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const calculatedPay = useMemo(() => {
-    const rate = Number(form.worker_rate_per_sqft) || DEFAULT_WORKER_RATE_PER_SQFT;
-    return formatWorkerPay(form.sqft, rate);
-  }, [form.sqft, form.worker_rate_per_sqft]);
+  const rate = Number(form.worker_rate_per_sqft) || DEFAULT_WORKER_RATE_PER_SQFT;
+
+  const calculatedPay = useMemo(() => formatWorkerPay(form.sqft, rate), [form.sqft, rate]);
 
   useEffect(() => {
     Promise.all([api('/neighborhoods'), api('/workers')])
@@ -77,26 +73,19 @@ export default function AddJob() {
     setBulkRows((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
   }
 
-  function toggleWorker(workerId) {
-    setSelectedWorkerIds((prev) =>
-      prev.includes(workerId)
-        ? prev.filter((id) => id !== workerId)
-        : [...prev, workerId]
-    );
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setSubmitting(true);
 
-    const assignments = selectedWorkerIds.map((workerId) => ({ worker_id: workerId }));
-
     try {
       if (mode === 'single') {
         const { job } = await api('/jobs', {
           method: 'POST',
-          body: JSON.stringify({ ...form, assignments }),
+          body: JSON.stringify({
+            ...form,
+            worker_id: selectedWorkerId || null,
+          }),
         });
         navigate(`/jobs/${job.id}`);
         return;
@@ -108,12 +97,17 @@ export default function AddJob() {
         status: form.status,
         worker_rate_per_sqft: form.worker_rate_per_sqft,
         company_paid: form.company_paid,
-        assignments,
       };
 
-      const jobs = bulkRows.filter(
-        (row) => row.title.trim() || row.address.trim() || row.sqft
-      );
+      const jobs = bulkRows
+        .filter((row) => row.title.trim() || row.address.trim() || row.sqft)
+        .map((row) => ({
+          title: row.title,
+          address: row.address,
+          sqft: row.sqft,
+          description: row.description,
+          worker_id: row.worker_id || null,
+        }));
 
       if (jobs.length === 0) {
         throw new Error('Add at least one job with title, address, and square footage');
@@ -151,8 +145,8 @@ export default function AddJob() {
         <h2>Add job{mode === 'multiple' ? 's' : ''}</h2>
         <p>
           {mode === 'single'
-            ? 'Create a new job and assign workers'
-            : 'Create several jobs at once with shared settings'}
+            ? 'Create a job, assign one worker, and review the price from the worker rate'
+            : 'Create several jobs and assign a different worker to each one'}
         </p>
       </header>
 
@@ -307,20 +301,39 @@ export default function AddJob() {
               </select>
             </div>
           </div>
-          {mode === 'single' && form.sqft && Number(form.sqft) > 0 && (
-            <p className="job-meta" style={{ marginBottom: '1rem' }}>
-              Worker pay per assignment:{' '}
-              {isAdmin ? (
-                <strong>{calculatedPay}</strong>
-              ) : (
-                <strong>
-                  {calculatedPay} ({Number(form.worker_rate_per_sqft) || DEFAULT_WORKER_RATE_PER_SQFT} × sqft)
-                </strong>
-              )}
-            </p>
-          )}
           {mode === 'single' && (
             <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="worker_id">Worker</label>
+                  <select
+                    id="worker_id"
+                    value={selectedWorkerId}
+                    onChange={(e) => setSelectedWorkerId(e.target.value)}
+                  >
+                    <option value="">No worker</option>
+                    {workers.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="price">Price</label>
+                  <input
+                    id="price"
+                    value={form.sqft && Number(form.sqft) > 0 ? calculatedPay : ''}
+                    placeholder="Enter square footage"
+                    readOnly
+                  />
+                  <p className="job-meta">
+                    {form.sqft && Number(form.sqft) > 0
+                      ? `${Number(form.sqft).toLocaleString()} sqft × $${rate.toFixed(2)}`
+                      : 'Calculated from square footage × worker rate'}
+                  </p>
+                </div>
+              </div>
               <div className="form-group" style={{ marginBottom: '1rem' }}>
                 <label htmlFor="description">Description</label>
                 <input
@@ -329,20 +342,6 @@ export default function AddJob() {
                   onChange={(e) => updateField('description', e.target.value)}
                   placeholder="Optional job notes"
                 />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="company_amount">Company amount ($)</label>
-                  <input
-                    id="company_amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.company_amount}
-                    onChange={(e) => updateField('company_amount', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
               </div>
             </>
           )}
@@ -358,12 +357,15 @@ export default function AddJob() {
 
         {mode === 'multiple' && (
           <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <h3 style={{ margin: 0 }}>Jobs to create</h3>
               <button type="button" className="btn btn-secondary" onClick={addBulkRow}>
                 + Add row
               </button>
             </div>
+            <p className="job-meta" style={{ marginBottom: '1rem' }}>
+              Assign one worker to each job. Price is square footage × ${rate.toFixed(2)}.
+            </p>
             <div className="table-scroll">
               <table className="data-table">
                 <thead>
@@ -371,7 +373,8 @@ export default function AddJob() {
                     <th>Title</th>
                     <th>Address</th>
                     <th>Sqft</th>
-                    <th>Company ($)</th>
+                    <th>Worker</th>
+                    <th>Price</th>
                     <th>Notes</th>
                     <th />
                   </tr>
@@ -408,15 +411,24 @@ export default function AddJob() {
                         />
                       </td>
                       <td>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={row.company_amount}
-                          onChange={(e) => updateBulkRow(index, 'company_amount', e.target.value)}
-                          placeholder="0.00"
-                          style={{ width: '6rem' }}
-                        />
+                        <select
+                          aria-label={`Worker for job ${index + 1}`}
+                          value={row.worker_id}
+                          onChange={(e) => updateBulkRow(index, 'worker_id', e.target.value)}
+                          style={{ minWidth: '9rem' }}
+                        >
+                          <option value="">No worker</option>
+                          {workers.map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        {row.sqft && Number(row.sqft) > 0
+                          ? formatWorkerPay(row.sqft, rate)
+                          : '—'}
                       </td>
                       <td>
                         <input
@@ -439,32 +451,6 @@ export default function AddJob() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          </div>
-        )}
-
-        {workers.length > 0 && (
-          <div className="card">
-            <h3 style={{ marginBottom: '0.5rem' }}>Assign workers (optional)</h3>
-            <p className="job-meta" style={{ marginBottom: '1rem' }}>
-              Each selected worker receives sqft × $
-              {(Number(form.worker_rate_per_sqft) || DEFAULT_WORKER_RATE_PER_SQFT).toFixed(2)} per job.
-            </p>
-            <div className="job-list grid-2">
-              {workers.map((w) => (
-                <label
-                  key={w.id}
-                  className="job-card"
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedWorkerIds.includes(w.id)}
-                    onChange={() => toggleWorker(w.id)}
-                  />
-                  <span>{w.name}</span>
-                </label>
-              ))}
             </div>
           </div>
         )}
