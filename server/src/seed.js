@@ -50,7 +50,6 @@ const jobs = [
 jobs.forEach((j, i) => {
   const hoodIdx = j[2];
   const sqft = j[8];
-  const priceCents = Math.round(sqft * 1.8 * 100);
   const jobId = insertJob.run(
     j[0],
     j[1],
@@ -58,14 +57,17 @@ jobs.forEach((j, i) => {
     j[3],
     j[4],
     j[5],
-    priceCents,
+    j[6],
     j[7],
     sqft,
     1.8
   ).lastInsertRowid;
 
-  const workerId = workerIds[i % workerIds.length];
-  insertAssign.run(jobId, workerId, priceCents, i % 2, null);
+  const w1 = workerIds[i % workerIds.length];
+  const w2 = workerIds[(i + 2) % workerIds.length];
+  const workerPay = Math.round(sqft * 1.8 * 100);
+  insertAssign.run(jobId, w1, workerPay, i % 2, null);
+  if (i % 3 !== 0) insertAssign.run(jobId, w2, workerPay, i > 2 ? 1 : 0, 'Helper shift');
 });
 
 console.log('Seed complete.');

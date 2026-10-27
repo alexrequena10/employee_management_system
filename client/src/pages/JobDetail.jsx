@@ -129,7 +129,7 @@ export default function JobDetail() {
               />
             </div>
             <p className="job-meta" style={{ alignSelf: 'flex-end', marginBottom: '0.55rem' }}>
-              Price and worker pay recalculate when sqft or rate changes.
+              Worker pay recalculates when sqft or rate changes.
             </p>
           </div>
         ) : (
@@ -146,7 +146,7 @@ export default function JobDetail() {
         <p style={{ marginBottom: '0.75rem' }}>
           Status: <StatusBadge paid={job.company_paid} label={job.company_payment_status} />
           {isAdmin && job.company_amount && (
-            <span style={{ marginLeft: '0.5rem' }}>Price: <strong>{job.company_amount}</strong></span>
+            <span style={{ marginLeft: '0.5rem' }}>Amount: <strong>{job.company_amount}</strong></span>
           )}
         </p>
         {isAdmin && (

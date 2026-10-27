@@ -192,28 +192,6 @@ router.post('/workers', authMiddleware, (req, res) => {
   res.status(201).json({ worker: formatWorker(worker) });
 });
 
-router.patch('/workers/:id', authMiddleware, (req, res) => {
-  const worker = db.prepare('SELECT * FROM workers WHERE id = ?').get(req.params.id);
-  if (!worker) return res.status(404).json({ error: 'Worker not found' });
-
-  const { first_name, last_name, email, phone } = req.body || {};
-  const first = first_name !== undefined ? String(first_name).trim() : worker.first_name;
-  const last = last_name !== undefined ? String(last_name).trim() : worker.last_name;
-  if (!first || !last) {
-    return res.status(400).json({ error: 'First and last name are required' });
-  }
-
-  const nextEmail = email !== undefined ? String(email).trim() || null : worker.email;
-  const nextPhone = phone !== undefined ? String(phone).trim() || null : worker.phone;
-
-  db.prepare(
-    'UPDATE workers SET first_name = ?, last_name = ?, email = ?, phone = ? WHERE id = ?'
-  ).run(first, last, nextEmail, nextPhone, worker.id);
-
-  const updated = db.prepare('SELECT * FROM workers WHERE id = ?').get(worker.id);
-  res.json({ worker: formatWorker(updated) });
-});
-
 router.delete('/workers/:id', authMiddleware, requireAdmin, (req, res) => {
   const worker = db.prepare('SELECT * FROM workers WHERE id = ?').get(req.params.id);
   if (!worker) return res.status(404).json({ error: 'Worker not found' });
@@ -299,30 +277,9 @@ function recalcAssignmentPay(jobId) {
     cents,
     jobId
   );
-  db.prepare('UPDATE jobs SET company_amount_cents = ? WHERE id = ?').run(cents, jobId);
 }
 
-function assignedWorkerId(payload) {
-  const ids = [];
-  if (
-    payload.worker_id !== undefined &&
-    payload.worker_id !== null &&
-    payload.worker_id !== ''
-  ) {
-    ids.push(Number(payload.worker_id));
-  }
-  for (const assignment of payload.assignments || []) {
-    const id = Number(assignment?.worker_id);
-    if (id) ids.push(id);
-  }
-  const unique = [...new Set(ids.filter((id) => id > 0))];
-  if (unique.length > 1) {
-    throw new Error('A job can only be assigned one worker');
-  }
-  return unique[0] || null;
-}
-
-function insertJobFromPayload(payload) {
+function insertJobFromPayload(payload, admin) {
   const {
     title,
     address,
@@ -332,7 +289,10 @@ function insertJobFromPayload(payload) {
     status = 'active',
     sqft,
     worker_rate_per_sqft,
+    company_amount_cents,
+    company_amount,
     company_paid = false,
+    assignments = [],
   } = payload || {};
 
   if (!title?.trim() || !address?.trim() || !client_name?.trim()) {
@@ -352,21 +312,18 @@ function insertJobFromPayload(payload) {
   const validStatuses = ['active', 'completed', 'cancelled'];
   const jobStatus = validStatuses.includes(status) ? status : 'active';
 
+  let amountCents = 0;
+  if (company_amount_cents !== undefined) {
+    amountCents = Math.round(Number(company_amount_cents)) || 0;
+  } else if (company_amount !== undefined && company_amount !== '') {
+    amountCents = Math.round(Number(company_amount) * 100) || 0;
+  }
   const clientPaid = Boolean(company_paid);
 
   const rateNum = Number(worker_rate_per_sqft) || DEFAULT_WORKER_RATE_PER_SQFT;
   if (rateNum <= 0) throw new Error('Worker rate per sqft must be greater than 0');
 
-  const priceCents = workerPayCentsFromSqft(sqftNum, rateNum);
-  const workerId = assignedWorkerId(payload);
-  if (workerId) {
-    const worker = db
-      .prepare('SELECT id FROM workers WHERE id = ? AND active = 1')
-      .get(workerId);
-    if (!worker) {
-      throw new Error('Assigned worker was not found or is inactive');
-    }
-  }
+  const defaultWorkerPay = workerPayCentsFromSqft(sqftNum, rateNum);
 
   const result = db
     .prepare(
@@ -382,7 +339,7 @@ function insertJobFromPayload(payload) {
       client_name.trim(),
       description?.trim() || null,
       jobStatus,
-      priceCents,
+      amountCents,
       clientPaid ? 1 : 0,
       sqftNum,
       rateNum,
@@ -390,11 +347,30 @@ function insertJobFromPayload(payload) {
     );
 
   const jobId = result.lastInsertRowid;
+  const insertAssign = db.prepare(
+    'INSERT INTO job_assignments (job_id, worker_id, worker_amount_cents, worker_paid) VALUES (?, ?, ?, 0)'
+  );
 
-  if (workerId) {
-    db.prepare(
-      'INSERT INTO job_assignments (job_id, worker_id, worker_amount_cents, worker_paid) VALUES (?, ?, ?, 0)'
-    ).run(jobId, workerId, priceCents);
+  for (const a of assignments) {
+    const workerId = Number(a.worker_id);
+    if (!workerId) continue;
+    const worker = db.prepare('SELECT id FROM workers WHERE id = ? AND active = 1').get(workerId);
+    if (!worker) continue;
+
+    let workerCents = defaultWorkerPay;
+    if (admin) {
+      if (a.worker_amount_cents !== undefined) {
+        workerCents = Math.round(Number(a.worker_amount_cents)) || 0;
+      } else if (a.worker_amount !== undefined && a.worker_amount !== '') {
+        workerCents = Math.round(Number(a.worker_amount) * 100) || 0;
+      }
+    }
+
+    try {
+      insertAssign.run(jobId, workerId, workerCents);
+    } catch {
+      // skip duplicate worker on same job
+    }
   }
 
   return jobId;
@@ -434,7 +410,7 @@ function buildInvoicePayload(job, assignments, admin) {
 router.post('/jobs', authMiddleware, (req, res) => {
   const admin = isAdmin(req.user);
   try {
-    const jobId = insertJobFromPayload(req.body);
+    const jobId = insertJobFromPayload(req.body, admin);
     const job = getJobRow(jobId);
     res.status(201).json({ job: jobWithAssignments(job, getAssignments(jobId), admin) });
   } catch (err) {
@@ -461,7 +437,7 @@ router.post('/jobs/bulk', authMiddleware, (req, res) => {
           ...row,
           assignments: row.assignments ?? defaults.assignments ?? [],
         };
-        const jobId = insertJobFromPayload(payload);
+        const jobId = insertJobFromPayload(payload, admin);
         created.push(jobId);
       } catch (err) {
         errors.push({ index, error: err.message });
