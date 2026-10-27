@@ -34,11 +34,10 @@ export default function JobCard({ job, showWorkerStatus, onRemove }) {
             {isAdmin && job.worker_amount && <span> ({job.worker_amount})</span>}
           </span>
         )}
-        {!showWorkerStatus && job.assignments?.length === 1 && (
-          <span className="chip">Worker: {job.assignments[0].worker_name}</span>
-        )}
-        {!showWorkerStatus && job.assignments?.length > 1 && (
-          <span className="chip">{job.assignments.length} workers assigned</span>
+        {!showWorkerStatus && job.assignments?.length > 0 && (
+          <span className="chip">
+            {job.assignments.length} worker(s) assigned
+          </span>
         )}
       </div>
       <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
