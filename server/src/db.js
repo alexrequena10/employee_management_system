@@ -87,5 +87,11 @@ for (const col of ['invoice_notes', 'invoice_bill_to', 'invoice_due_date']) {
 if (!jobColNames.has('invoice_updated_at')) {
   db.exec('ALTER TABLE jobs ADD COLUMN invoice_updated_at TEXT');
 }
+if (!jobColNames.has('seen_by_admin')) {
+  db.exec('ALTER TABLE jobs ADD COLUMN seen_by_admin INTEGER NOT NULL DEFAULT 1');
+}
+if (!jobColNames.has('created_by')) {
+  db.exec('ALTER TABLE jobs ADD COLUMN created_by TEXT');
+}
 
 export default db;

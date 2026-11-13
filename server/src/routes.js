@@ -322,7 +322,8 @@ function assignedWorkerId(payload) {
   return unique[0] || null;
 }
 
-function insertJobFromPayload(payload, admin) {
+function insertJobFromPayload(payload, user) {
+  const admin = isAdmin(user);
   const {
     title,
     address,
@@ -372,8 +373,9 @@ function insertJobFromPayload(payload, admin) {
     .prepare(
       `INSERT INTO jobs (
         title, address, neighborhood_id, client_name, description,
-        status, company_amount_cents, company_paid, sqft, worker_rate_per_sqft, completed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        status, company_amount_cents, company_paid, sqft, worker_rate_per_sqft, completed_at,
+        seen_by_admin, created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       title.trim(),
@@ -386,7 +388,9 @@ function insertJobFromPayload(payload, admin) {
       clientPaid ? 1 : 0,
       sqftNum,
       rateNum,
-      jobStatus === 'completed' ? new Date().toISOString() : null
+      jobStatus === 'completed' ? new Date().toISOString() : null,
+      admin ? 1 : 0,
+      user?.username || null
     );
 
   const jobId = result.lastInsertRowid;
@@ -434,7 +438,7 @@ function buildInvoicePayload(job, assignments, admin) {
 router.post('/jobs', authMiddleware, (req, res) => {
   const admin = isAdmin(req.user);
   try {
-    const jobId = insertJobFromPayload(req.body, admin);
+    const jobId = insertJobFromPayload(req.body, req.user);
     const job = getJobRow(jobId);
     res.status(201).json({ job: jobWithAssignments(job, getAssignments(jobId), admin) });
   } catch (err) {
@@ -461,7 +465,7 @@ router.post('/jobs/bulk', authMiddleware, (req, res) => {
           ...row,
           assignments: row.assignments ?? defaults.assignments ?? [],
         };
-        const jobId = insertJobFromPayload(payload, admin);
+        const jobId = insertJobFromPayload(payload, req.user);
         created.push(jobId);
       } catch (err) {
         errors.push({ index, error: err.message });
@@ -491,8 +495,37 @@ router.get('/jobs/:id', authMiddleware, (req, res) => {
   const admin = isAdmin(req.user);
   const job = getJobRow(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
+  if (admin && !job.seen_by_admin) {
+    db.prepare('UPDATE jobs SET seen_by_admin = 1 WHERE id = ?').run(job.id);
+  }
   const assignments = getAssignments(job.id);
   res.json({ job: jobWithAssignments(job, assignments, admin) });
+});
+
+// ——— Notifications (admin) ———
+router.get('/notifications', authMiddleware, requireAdmin, (req, res) => {
+  const jobs = db
+    .prepare(
+      `SELECT j.id, j.title, j.address, j.client_name, j.created_at, j.created_by,
+              n.name AS neighborhood_name
+       FROM jobs j
+       JOIN neighborhoods n ON n.id = j.neighborhood_id
+       WHERE j.seen_by_admin = 0
+       ORDER BY j.id DESC`
+    )
+    .all();
+  res.json({ notifications: jobs });
+});
+
+router.post('/notifications/seen', authMiddleware, requireAdmin, (req, res) => {
+  const ids = Array.isArray(req.body?.job_ids) ? req.body.job_ids.map(Number).filter(Boolean) : null;
+  if (ids) {
+    const mark = db.prepare('UPDATE jobs SET seen_by_admin = 1 WHERE id = ?');
+    db.transaction(() => ids.forEach((id) => mark.run(id)))();
+  } else {
+    db.prepare('UPDATE jobs SET seen_by_admin = 1 WHERE seen_by_admin = 0').run();
+  }
+  res.json({ ok: true });
 });
 
 router.patch('/jobs/:id', authMiddleware, (req, res) => {

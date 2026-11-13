@@ -1,10 +1,33 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import { formatJobDate } from '../utils/date.js';
 
 export default function Dashboard() {
+  const { isAdmin } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    api('/notifications')
+      .then(({ notifications: n }) => setNotifications(n))
+      .catch(console.error);
+  }, [isAdmin]);
+
+  async function markSeen(jobIds) {
+    setNotifications((prev) => (jobIds ? prev.filter((n) => !jobIds.includes(n.id)) : []));
+    try {
+      await api('/notifications/seen', {
+        method: 'POST',
+        body: JSON.stringify(jobIds ? { job_ids: jobIds } : {}),
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -72,6 +95,40 @@ export default function Dashboard() {
           <Link to="/workers" className="btn btn-secondary">Browse by worker</Link>
         </div>
       </div>
+
+      {isAdmin && notifications.length > 0 && (
+        <div className="card notification-card">
+          <div className="notification-header">
+            <h3>
+              {notifications.length} new job{notifications.length === 1 ? '' : 's'} added
+            </h3>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => markSeen(null)}>
+              Mark all as seen
+            </button>
+          </div>
+          <ul className="notification-list">
+            {notifications.map((n) => (
+              <li key={n.id}>
+                <div>
+                  <Link to={`/jobs/${n.id}`}>{n.title}</Link>
+                  <div className="job-meta">
+                    {n.address} · {n.neighborhood_name} · {n.client_name} ·{' '}
+                    {formatJobDate(n.created_at)}
+                    {n.created_by && ` · Added by ${n.created_by}`}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => markSeen([n.id])}
+                >
+                  Dismiss
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </>
   );
 }
