@@ -28,8 +28,8 @@ function formatCurrency(cents) {
   );
 }
 
-function formatRange(start) {
-  const end = addDays(start, 6);
+function formatRange(start, lastWeekStart) {
+  const end = addDays(lastWeekStart, 6);
   const opts = { month: 'short', day: 'numeric' };
   return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', {
     ...opts,
@@ -40,7 +40,9 @@ function formatRange(start) {
 export default function WeeklyJobs() {
   const { isAdmin } = useAuth();
   const [jobs, setJobs] = useState([]);
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [rangeStart, setRangeStart] = useState(() => startOfWeek(new Date()));
+  const [rangeEnd, setRangeEnd] = useState(() => startOfWeek(new Date()));
+  const weekCount = Math.round((rangeEnd - rangeStart) / (7 * 24 * 60 * 60 * 1000)) + 1;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -52,12 +54,12 @@ export default function WeeklyJobs() {
   }, []);
 
   const { workerGroups, unassigned, totalJobs } = useMemo(() => {
-    const weekEnd = addDays(weekStart, 7);
+    const endExclusive = addDays(rangeEnd, 7);
     const weekJobs = jobs
       .filter((job) => {
         if (job.status === 'cancelled') return false;
         const date = parseDate(job.created_at);
-        return date >= weekStart && date < weekEnd;
+        return date >= rangeStart && date < endExclusive;
       })
       .sort((a, b) => parseDate(a.created_at) - parseDate(b.created_at));
 
@@ -85,16 +87,45 @@ export default function WeeklyJobs() {
       unassigned: noWorker,
       totalJobs: weekJobs.length,
     };
-  }, [jobs, weekStart]);
+  }, [jobs, rangeStart, rangeEnd]);
 
-  function changeWeek(days) {
-    setWeekStart((prev) => addDays(prev, days));
+  function shiftRange(direction) {
+    const days = direction * weekCount * 7;
+    setRangeStart((prev) => addDays(prev, days));
+    setRangeEnd((prev) => addDays(prev, days));
   }
 
-  function pickDate(value) {
-    if (!value) return;
+  function resetToThisWeek() {
+    const current = startOfWeek(new Date());
+    setRangeStart(current);
+    setRangeEnd(current);
+  }
+
+  function weekFromInput(value) {
     const [y, m, d] = value.split('-').map(Number);
-    setWeekStart(startOfWeek(new Date(y, m - 1, d)));
+    return startOfWeek(new Date(y, m - 1, d));
+  }
+
+  function pickFrom(value) {
+    if (!value) return;
+    const week = weekFromInput(value);
+    if (week > rangeEnd) {
+      setRangeStart(rangeEnd);
+      setRangeEnd(week);
+    } else {
+      setRangeStart(week);
+    }
+  }
+
+  function pickTo(value) {
+    if (!value) return;
+    const week = weekFromInput(value);
+    if (week < rangeStart) {
+      setRangeEnd(rangeStart);
+      setRangeStart(week);
+    } else {
+      setRangeEnd(week);
+    }
   }
 
   return (
@@ -102,28 +133,33 @@ export default function WeeklyJobs() {
       <header className="page-title">
         <h2>Weekly jobs</h2>
         <p>
-          Week of {formatRange(weekStart)} · {totalJobs} job{totalJobs === 1 ? '' : 's'}
+          {weekCount === 1 ? 'Week of ' : `${weekCount} weeks · `}
+          {formatRange(rangeStart, rangeEnd)} · {totalJobs} job{totalJobs === 1 ? '' : 's'}
         </p>
       </header>
 
       <div className="week-controls no-print">
-        <button type="button" className="btn btn-secondary" onClick={() => changeWeek(-7)}>
-          ← Previous week
+        <button type="button" className="btn btn-secondary" onClick={() => shiftRange(-1)}>
+          ← Previous
         </button>
+        <label htmlFor="week-from">From week</label>
         <input
+          id="week-from"
           type="date"
-          aria-label="Choose a day in the week"
-          value={toInputValue(weekStart)}
-          onChange={(e) => pickDate(e.target.value)}
+          value={toInputValue(rangeStart)}
+          onChange={(e) => pickFrom(e.target.value)}
         />
-        <button type="button" className="btn btn-secondary" onClick={() => changeWeek(7)}>
-          Next week →
+        <label htmlFor="week-to">To week</label>
+        <input
+          id="week-to"
+          type="date"
+          value={toInputValue(rangeEnd)}
+          onChange={(e) => pickTo(e.target.value)}
+        />
+        <button type="button" className="btn btn-secondary" onClick={() => shiftRange(1)}>
+          Next →
         </button>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => setWeekStart(startOfWeek(new Date()))}
-        >
+        <button type="button" className="btn btn-secondary" onClick={resetToThisWeek}>
           This week
         </button>
         <button type="button" className="btn btn-primary" onClick={() => window.print()}>
@@ -135,7 +171,9 @@ export default function WeeklyJobs() {
       {loading && <p className="loading">Loading jobs…</p>}
 
       {!loading && !error && totalJobs === 0 && (
-        <p className="empty-state">No jobs this week.</p>
+        <p className="empty-state">
+          No jobs {weekCount === 1 ? 'this week' : 'in these weeks'}.
+        </p>
       )}
 
       {workerGroups.map((group) => {

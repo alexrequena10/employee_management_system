@@ -619,6 +619,12 @@ input:focus, select:focus {
   width: auto;
 }
 
+.week-controls label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
 .week-worker-header {
   display: flex;
   justify-content: space-between;

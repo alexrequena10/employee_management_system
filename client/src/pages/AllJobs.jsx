@@ -3,7 +3,24 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import { formatJobDate } from '../utils/date.js';
+import { formatJobDate, parseDate, toDateInputValue } from '../utils/date.js';
+
+function searchText(job) {
+  const date = job.created_at ? parseDate(job.created_at) : null;
+  return [
+    date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString('en-US') : '',
+    job.neighborhood_name,
+    job.address,
+    job.title,
+    job.client_name,
+    ...(job.assignments || []).map((a) => a.worker_name),
+    formatJobDate(job.created_at),
+    toDateInputValue(job.created_at),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
 
 export default function AllJobs() {
   const { isAdmin } = useAuth();
@@ -11,6 +28,7 @@ export default function AllJobs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     api('/jobs')
@@ -20,9 +38,13 @@ export default function AllJobs() {
   }, []);
 
   const filtered = useMemo(() => {
-    if (statusFilter === 'all') return jobs;
-    return jobs.filter((j) => j.status === statusFilter);
-  }, [jobs, statusFilter]);
+    const query = search.trim().toLowerCase();
+    return jobs.filter(
+      (j) =>
+        (statusFilter === 'all' || j.status === statusFilter) &&
+        (!query || searchText(j).includes(query))
+    );
+  }, [jobs, statusFilter, search]);
 
   return (
     <>
@@ -32,6 +54,16 @@ export default function AllJobs() {
       </header>
 
       <div className="form-row">
+        <div className="form-group">
+          <label htmlFor="job-search">Search</label>
+          <input
+            id="job-search"
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Neighborhood, name, street, or date"
+          />
+        </div>
         <div className="form-group" style={{ maxWidth: '220px' }}>
           <label htmlFor="status-filter">Filter by status</label>
           <select

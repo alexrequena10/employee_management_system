@@ -10,6 +10,13 @@ export function parseDate(value) {
   return new Date(hasZone ? iso : `${iso}Z`);
 }
 
+export function toDateInputValue(value) {
+  const date = value instanceof Date ? value : parseDate(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 export function formatJobDate(value) {
   if (!value) return '—';
   const date = parseDate(value);

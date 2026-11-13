@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import OptionSelect from '../components/OptionSelect.jsx';
 import {
   CLIENT_NAMES,
   DEFAULT_WORKER_RATE_PER_SQFT,
@@ -28,19 +29,6 @@ const emptyBulkRow = () => ({
   description: '',
   worker_id: '',
 });
-
-function OptionSelect({ id, options, placeholder, value, onChange, required }) {
-  return (
-    <select id={id} value={value} onChange={(e) => onChange(e.target.value)} required={required}>
-      <option value="">{placeholder}</option>
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 export default function AddJob() {
   const navigate = useNavigate();
@@ -130,7 +118,11 @@ export default function AddJob() {
         }));
 
       if (jobs.length === 0) {
-        throw new Error('Add at least one job with title, address, and square footage');
+        throw new Error(
+          isAdmin
+            ? 'Add at least one job with title, address, and square footage'
+            : 'Add at least one job with title and address'
+        );
       }
 
       const { jobs: created, errors: bulkErrors } = await api('/jobs/bulk', {
@@ -286,7 +278,7 @@ export default function AddJob() {
             </div>
           )}
           <div className="form-row cols-3">
-            {mode === 'single' && (
+            {mode === 'single' && isAdmin && (
               <div className="form-group">
                 <label htmlFor="sqft">Square footage</label>
                 <input
@@ -402,7 +394,7 @@ export default function AddJob() {
                   <tr>
                     <th>Title</th>
                     <th>Address</th>
-                    <th>Sqft</th>
+                    {isAdmin && <th>Sqft</th>}
                     <th>Worker</th>
                     {isAdmin && <th>Price</th>}
                     <th>Notes</th>
@@ -429,18 +421,20 @@ export default function AddJob() {
                           required={index === 0}
                         />
                       </td>
-                      <td>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={row.sqft}
-                          onChange={(e) => updateBulkRow(index, 'sqft', e.target.value)}
-                          placeholder="1200"
-                          style={{ width: '5rem' }}
-                          required={index === 0}
-                        />
-                      </td>
+                      {isAdmin && (
+                        <td>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={row.sqft}
+                            onChange={(e) => updateBulkRow(index, 'sqft', e.target.value)}
+                            placeholder="1200"
+                            style={{ width: '5rem' }}
+                            required={index === 0}
+                          />
+                        </td>
+                      )}
                       <td>
                         <select
                           aria-label={`Worker for job ${index + 1}`}

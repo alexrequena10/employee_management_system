@@ -322,7 +322,7 @@ function assignedWorkerId(payload) {
   return unique[0] || null;
 }
 
-function insertJobFromPayload(payload) {
+function insertJobFromPayload(payload, admin) {
   const {
     title,
     address,
@@ -339,8 +339,8 @@ function insertJobFromPayload(payload) {
     throw new Error('Title, address, and client name are required');
   }
 
-  const sqftNum = Number(sqft);
-  if (!sqftNum || sqftNum <= 0) {
+  const sqftNum = admin ? Number(sqft) : 0;
+  if (admin && (!sqftNum || sqftNum <= 0)) {
     throw new Error('Square footage is required and must be greater than 0');
   }
 
@@ -354,7 +354,7 @@ function insertJobFromPayload(payload) {
 
   const clientPaid = Boolean(company_paid);
 
-  const rateNum = Number(worker_rate_per_sqft) || DEFAULT_WORKER_RATE_PER_SQFT;
+  const rateNum = (admin && Number(worker_rate_per_sqft)) || DEFAULT_WORKER_RATE_PER_SQFT;
   if (rateNum <= 0) throw new Error('Worker rate per sqft must be greater than 0');
 
   const priceCents = workerPayCentsFromSqft(sqftNum, rateNum);
@@ -434,7 +434,7 @@ function buildInvoicePayload(job, assignments, admin) {
 router.post('/jobs', authMiddleware, (req, res) => {
   const admin = isAdmin(req.user);
   try {
-    const jobId = insertJobFromPayload(req.body);
+    const jobId = insertJobFromPayload(req.body, admin);
     const job = getJobRow(jobId);
     res.status(201).json({ job: jobWithAssignments(job, getAssignments(jobId), admin) });
   } catch (err) {
@@ -461,7 +461,7 @@ router.post('/jobs/bulk', authMiddleware, (req, res) => {
           ...row,
           assignments: row.assignments ?? defaults.assignments ?? [],
         };
-        const jobId = insertJobFromPayload(payload);
+        const jobId = insertJobFromPayload(payload, admin);
         created.push(jobId);
       } catch (err) {
         errors.push({ index, error: err.message });
@@ -495,23 +495,71 @@ router.get('/jobs/:id', authMiddleware, (req, res) => {
   res.json({ job: jobWithAssignments(job, assignments, admin) });
 });
 
-router.patch('/jobs/:id', authMiddleware, requireAdmin, (req, res) => {
+router.patch('/jobs/:id', authMiddleware, (req, res) => {
+  const admin = isAdmin(req.user);
   const job = getJobRow(req.params.id);
   if (!job) return res.status(404).json({ error: 'Job not found' });
 
+  const body = req.body || {};
   const {
     company_paid,
     company_amount_cents,
     status,
     title,
+    client_name,
+    address,
+    neighborhood_id,
     description,
+    job_date,
     sqft,
     worker_rate_per_sqft,
-  } = req.body || {};
+  } = body;
+
+  const adminOnly = ['status', 'sqft', 'worker_rate_per_sqft', 'company_amount_cents', 'company_paid'];
+  if (!admin && adminOnly.some((field) => body[field] !== undefined)) {
+    return res.status(403).json({ error: 'Admin access required to change that field' });
+  }
 
   const updates = [];
   const params = [];
   let recalcPay = false;
+
+  if (client_name !== undefined) {
+    if (!String(client_name).trim()) {
+      return res.status(400).json({ error: 'Client name is required' });
+    }
+    updates.push('client_name = ?');
+    params.push(String(client_name).trim());
+  }
+  if (address !== undefined) {
+    if (!String(address).trim()) return res.status(400).json({ error: 'Address is required' });
+    updates.push('address = ?');
+    params.push(String(address).trim());
+  }
+  if (neighborhood_id !== undefined) {
+    const hood = db.prepare('SELECT id FROM neighborhoods WHERE id = ?').get(Number(neighborhood_id));
+    if (!hood) return res.status(400).json({ error: 'Invalid neighborhood' });
+    updates.push('neighborhood_id = ?');
+    params.push(hood.id);
+  }
+  if (job_date !== undefined) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(job_date))) {
+      return res.status(400).json({ error: 'Job date must be YYYY-MM-DD' });
+    }
+    updates.push('created_at = ?');
+    params.push(`${job_date} 12:00:00`);
+  }
+
+  let newWorkerId;
+  if (body.worker_id !== undefined) {
+    newWorkerId = body.worker_id === null || body.worker_id === '' ? null : Number(body.worker_id);
+    if (newWorkerId !== null) {
+      const worker = db
+        .prepare('SELECT id FROM workers WHERE id = ? AND active = 1')
+        .get(newWorkerId);
+      if (!worker) return res.status(400).json({ error: 'Assigned worker was not found or is inactive' });
+    }
+  }
 
   if (company_paid !== undefined) {
     updates.push('company_paid = ?');
@@ -534,12 +582,13 @@ router.patch('/jobs/:id', authMiddleware, requireAdmin, (req, res) => {
     }
   }
   if (title !== undefined) {
+    if (!String(title).trim()) return res.status(400).json({ error: 'Title is required' });
     updates.push('title = ?');
-    params.push(title);
+    params.push(String(title).trim());
   }
   if (description !== undefined) {
     updates.push('description = ?');
-    params.push(description);
+    params.push(description ? String(description).trim() || null : null);
   }
   if (sqft !== undefined) {
     const sqftNum = Number(sqft);
@@ -565,12 +614,27 @@ router.patch('/jobs/:id', authMiddleware, requireAdmin, (req, res) => {
     db.prepare(`UPDATE jobs SET ${updates.join(', ')} WHERE id = ?`).run(...params);
   }
 
+  if (newWorkerId !== undefined) {
+    const current = getAssignments(job.id);
+    const unchanged =
+      current.length === 1 ? current[0].worker_id === newWorkerId : newWorkerId === null && !current.length;
+    if (!unchanged) {
+      db.prepare('DELETE FROM job_assignments WHERE job_id = ?').run(job.id);
+      if (newWorkerId !== null) {
+        db.prepare(
+          'INSERT INTO job_assignments (job_id, worker_id, worker_amount_cents, worker_paid) VALUES (?, ?, 0, 0)'
+        ).run(job.id, newWorkerId);
+        recalcPay = true;
+      }
+    }
+  }
+
   if (recalcPay) {
     recalcAssignmentPay(job.id);
   }
 
   const updated = getJobRow(job.id);
-  res.json({ job: jobWithAssignments(updated, getAssignments(job.id), true) });
+  res.json({ job: jobWithAssignments(updated, getAssignments(job.id), admin) });
 });
 
 router.delete('/jobs/:id', authMiddleware, requireAdmin, (req, res) => {
